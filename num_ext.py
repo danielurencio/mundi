@@ -142,7 +142,12 @@ class Inegi2010:
 
     def save_url_file(self):
         self.get_all_possible_batches()
-        pd.DataFrame(self.arr).to_csv('urls.csv',index=False)
+        df = pd.DataFrame(self.arr)
+        df['municipio'] = df.titulo.map(lambda x:x.split(' - ')[-1])
+        df['titulo'] = df.titulo.map(lambda x:x.split(' - ')[0])
+        df['region'] = df.titulo.map(lambda x:x.split(', ')[-1])
+        df.drop('titulo',axis=1,inplace=True)
+        df.to_csv('urls.csv',index=False)
         
     #|----------------------------------------------------------------------------------------------|
 
