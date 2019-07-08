@@ -1,11 +1,18 @@
 import requests, re, pandas as pd, os
+from unidecode import unidecode
 from pprint import pprint
 from random import randint
 from time import sleep
+from zipfile import ZipFile
+
+#-------------------------------------------------------------------------
+# ------------------------------------------------------------------------
 
 class Inegi2010:
 
     def __init__(self,initial_page=0):
+
+        # The 'initial page' parameter indicates from what page this code should begin extracting URLs.
         self.initial_page = initial_page
         self.arr = []
 
@@ -46,8 +53,6 @@ class Inegi2010:
             #'_': 1562337934255
         }
 
-        if not 'urls.csv' in os.listdir():
-            self.save_url_file()
 
     #|----------------------------------------------------------------------------------------------|
 
@@ -151,7 +156,76 @@ class Inegi2010:
         
     #|----------------------------------------------------------------------------------------------|
 
+    @staticmethod
+    def parse_urls_and_filenames():
+
+        if not 'urls.csv' in os.listdir():
+            self.save_url_file()
+            df = pd.read_csv('urls.csv')
+
+        else:
+            df = pd.read_csv('urls.csv')
+
+        def correct_name(x):
+            name = unidecode(x).upper()
+            name = re.sub('^ ','',name)
+            name = re.sub(' ','_',name)
+            name = re.sub('}','',name)
+            name = re.sub(' -','',name)
+            return name
+
+        df['entidad'] = df['entidad'].map(correct_name)
+        df['municipio'] = df['municipio'].map(correct_name)
+        df = df.sort_values(['entidad','municipio'],ascending=[True, True])
+
+        df['filename'] = df.apply(lambda x:'__'.join([x.entidad,x.municipio,x.region,'.zip']),axis=1)
+        df = df[['filename','formatos']].rename(columns={ 'formatos':'url' })
+
+        return df
+
+    #|----------------------------------------------------------------------------------------------|
+
+    def download_all_files(self):
+
+        self.download_list = self.parse_urls_and_filenames()
+
+        if 'num_ext' not in os.listdir():
+            os.system('mkdir num_ext')
+
+        for i,d in self.download_list.iterrows():
+
+            if d.filename in os.listdir('num_ext'):
+                filename = d.filename.split('.')
+                filename = filename[0] + '_1.' + filename[-1]
+
+            else:
+                filename = d.filename
+            
+            # Force some sleep time so that INEGI doesn't close the connection.
+            seconds_to_wait = randint(10,20)
+            sleep(seconds_to_wait)
+
+            print('-------------------------------------------------------------------------------')
+            print(f'Downloading {filename}..')
+            os.system(f'curl -o num_ext/{filename} {d.url}')
+            print('-------------------------------------------------------------------------------')
+            print('')
+
+            try:
+                zip_instance = ZipFile(f'num_ext/{filename}','r')
+                dir_to_extract = 'num_ext/' + filename.split('.')[0]
+                os.system(f'mkdir {dir_to_extract}')
+                zip_instance.extractall(f'{dir_to_extract}')
+                os.system(f'rm num_ext/{filename}')
+
+            except:
+                ix = self.download_list[self.download_list['filename'] == d.filename].index
+                self.download_list.loc[ix,'error'] = 1
+                self.download_list[self.download_list.error == 1].to_csv('error_log.csv',index=False)
+
+            
+    #|----------------------------------------------------------------------------------------------|
 
 if __name__ == '__main__':
-    inegi = Inegi2010(0)
-    #inegi.save_url_file()
+    inegi = Inegi2010(0) 
+    #inegi.download_all_files()
