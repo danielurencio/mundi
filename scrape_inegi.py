@@ -31,7 +31,7 @@ def download_zipped_shapefile(state_url):
 
 
 def download_and_extract_into_named_dir(state_url):
-    
+     
     file_name = state_url.split('/')[-1]
     dir_name = file_name.split('.')[0]
 
@@ -76,13 +76,21 @@ def order_directories_by_shapefile():
             os.system(f'mv "{d}/conjunto de datos"/{f}.* "{d}/conjunto de datos/{directory}"')
           
 
+def move_all_to_dir():
+    if 'inegi2018_data' not in os.listdir():
+        os.system('mkdir inegi2018_data')
+    
+    os.system('for i in ls [0-9]*/; do mv "$i" inegi2018_data/; done')
+
+
 
 
 def get_all_states():
     state_urls = get_state_urls()
     list(map(download_and_extract_into_named_dir,state_urls))
     order_directories_by_shapefile()
+    move_all_to_dir()
 
 if __name__ == '__main__':
-    get_all_states()
-    #order_directories_by_shapefile()
+    #get_all_states()
+    pass
