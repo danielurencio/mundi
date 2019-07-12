@@ -47,7 +47,7 @@ class ClipPoints:
 
     def add_cve_ent(self,df):
 
-        cols = df.columns.tolist() + ['CVE_ENT']
+        cols = df.columns.tolist() + ['CVE_ENT','geometry']
         df_ = self.add_point_geometry_to_df(df)
         spatially_joined_df = gpd.sjoin(df_,self.ents,op='within')[cols]
 
@@ -61,9 +61,12 @@ class ClipPoints:
     # what is the fastest approach?
     #--------------------------------------------------------------------------------
     @staticmethod
-    def add_cve(cve_ent,filetype):
+    def get_filetype(cve_ent,filetype):
+
         path = sh_navigator.path_to_filetypes_cve_ent(cve_ent) + filetype
-        return path
+        f = gpd.read_file(path).to_crs({'init': 'epsg:4326'})
+
+        return f
 
 
 if __name__ == '__main__':
@@ -76,8 +79,33 @@ if __name__ == '__main__':
     conn_str = f"postgres://{cred['usr']}:{cred['psw']}@{cred['host']}:{cred['port']}/{cred['db']}"
     conn = create_engine(conn_str)
 
-    query = 'select * from clipdw_merchant.transaction_geography limit 1000'
+    query = 'select * from clipdw_merchant.transaction_geography'
     df = pd.read_sql(query,conn)
 
     # Add cve_ent to DF
     df = clip_points.add_cve_ent(df)
+    
+    # Sort by CVE_ENT
+    df.sort_values('CVE_ENT',inplace=True)
+    
+    # Get unique CVE_ENT
+    cve_ents = df.CVE_ENT.unique()
+    
+    # Iterate, load file and do sjoin
+    obj={}
+    arr = []
+
+    for cve_ent in cve_ents:
+        
+        if cve_ent not in obj:
+            obj[cve_ent] = clip_points.get_filetype(cve_ent,'m')
+
+        ixes = df[df.CVE_ENT == cve_ent].index
+        df_ = gpd.GeoDataFrame(df.loc[ixes,:])
+        df_.crs = { 'init':'epsg:4326' }
+        df_ = gpd.sjoin(df_,obj[cve_ent],op='within')
+        arr.append(df_)
+
+    joined = pd.concat(arr)
+    not_joined = df[~df.index.isin(joined.index)]
+
