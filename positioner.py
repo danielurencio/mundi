@@ -95,6 +95,7 @@ if __name__ == '__main__':
     obj={}
     arr = []
 
+    # For each cve_ent make the join (to avoid clogging the memory)
     for cve_ent in cve_ents:
         
         if cve_ent not in obj:
@@ -106,6 +107,10 @@ if __name__ == '__main__':
         df_ = gpd.sjoin(df_,obj[cve_ent],op='within')
         arr.append(df_)
 
+    # Concat all the joins
     joined = pd.concat(arr)
+    # Get those that didn't join
     not_joined = df[~df.index.isin(joined.index)]
+
+    a = pd.concat(list(map(lambda x:obj[x],obj.keys())))
 
