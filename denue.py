@@ -3,6 +3,7 @@ import pandas as pd
 from random import randint
 from time import sleep
 from zipfile import ZipFile
+from glob import glob
 
 
 class Denue:
@@ -109,7 +110,7 @@ class Denue:
             if 'path' not in os.listdir('denue'):
                 os.system(f'mkdir denue/{path}')
 
-            if filename not in os.lisdir(f'denue/{path}'):
+            if filename not in os.listdir(f'denue/{path}'):
 
                 os.system(f'curl -o denue/{path}/{filename} {complete_url}')
             
@@ -131,16 +132,43 @@ class Denue:
         for d in os.listdir('denue'):
 
             try:
-                filename = d.split('.')[0]
-                zip_instance = ZipFile(f'denue/{d}/{filename}','r')
-                zip_instance.extract_all(f'denue/{d}/')
+                path = f'denue/{d}'
+                filename = os.listdir(path)[0]
+                zip_instance = ZipFile(f'{path}/{filename}','r')
+                zip_instance.extractall(f'{path}/')
 
-            except:
+            except Exception as e:
+                print(e)
                 error_log.append(d)
                 pd.DataFrame({ 'error':error_log }).to_csv(f'denue/error_log.csv',index=False)
 
+
+    @staticmethod
+    def get_all_csv():
+        path = 'denue'
+        result = [y for x in os.walk(path) for y in glob(os.path.join(x[0], '*.csv'))]
+        result = [ d for d in result if d not in ('diccionario','error') ]
+        return result
+
+    
+    def check_columns(self):
+        csvs = self.get_all_csv()
         
+        cols = []
+        errors = []
+
+        for csv in csvs:
+
+            try:
+                cols.append(pd.read_csv(csv,encoding='latin1').columns.tolist())
+
+            except Exception as e:
+                print(csv,e)
+                errors.append(csv)
+
+        return cols,errors
+
 
 if __name__ == '__main__':
     denue = Denue()
-    denue.download_files()
+    #denue.download_files()
