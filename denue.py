@@ -1,4 +1,4 @@
-import os,requests
+import os, requests, json, sqlalchemy
 import pandas as pd
 from random import randint
 from time import sleep
@@ -147,11 +147,11 @@ class Denue:
     def get_all_csv():
         path = 'denue'
         result = [y for x in os.walk(path) for y in glob(os.path.join(x[0], '*.csv'))]
-        result = [ d for d in result if d not in ('diccionario','error') ]
+        result = [ d for d in result if 'diccionario' not in d and 'error' not in d ]
         return result
 
     
-    def check_columns(self):
+    def get_columns(self):
         csvs = self.get_all_csv()
         
         cols = []
@@ -169,6 +169,106 @@ class Denue:
         return cols,errors
 
 
+
+
+    def map_columns_to_file(self,**kwargs):
+
+        if not kwargs:
+            cols, errors = self.get_columns()
+        else:
+            if ('cols' not in kwargs or 'errors' not in kwargs):
+                raise ValueError('You should name your key word arguments as "cols" and "errors" '+ \
+                                    'for columns and errors respectively.')
+
+            cols = kwargs['cols']
+            errors = kwargs['errors']
+
+        if not len(errors):
+            files = self.get_all_csv()
+            
+            return list(zip(files,cols))
+
+        else:
+            raise ValueError('There were errors while parsing the files.')
+
+
+
+
+    @staticmethod
+    def get_column_names_homologator(cols):
+
+        arr = [ list(set(map(lambda x:x[i],cols))) for i in range(41) ]
+        arr_0 = list(filter(lambda x:len(x) == 2,arr))
+        arr_1 = list(filter(lambda x:len(x) > 2,arr))
+
+        dic = { [ i for i in d if str.isupper(i[0])][0]:[ i for i in d if str.islower(i[0]) ][0] for d in arr_0 }
+
+        for e in arr_1[0]:
+            dic[e] = 'fecha_alta'
+
+        return dic
+
+
+    def save_column_name_homologator(self):
+        cols,errors = self.get_columns()
+        homologator = self.get_column_names_homologator(cols)
+
+        with open('homologator_file.json','w') as output:
+            json.dump(homologator,output)
+            print('An homologator JSON file has been generated to change the column names of each CSV file.')
+
+
+    @staticmethod
+    def fix_df_encoding_problems(df_):
+
+        df = df_.copy()
+        dtypes = df.dtypes.apply(lambda x:x.name).to_dict()
+        object_types = [ d for d in dtypes if dtypes[d] == 'object' ]
+
+        col_fn = lambda x:str(x).encode('latin1').decode('utf-8') if not pd.isnull(x) else None
+
+        for c in object_types:
+            df[c] = df[c].map(col_fn)
+
+        return df
+
+
+    def save_to_db(self,conn,dtype_dict):
+        
+        if 'homologator_file.json' not in os.listdir():
+            self.save_column_name_homologator()
+
+        homologator = json.loads(open('homologator_file.json').read())
+        csvs = self.get_all_csv()
+
+        csvs[0]
+
+        errors = []
+
+        for i,csv in enumerate(csvs):
+
+            try:
+                df = pd.read_csv(csv,encoding='latin1',low_memory=False)\
+                       .rename(columns=homologator)\
+                       .iloc[:,:41]
+
+                df = self.fix_df_encoding_problems(df)
+                new_t = { d:'float64' if d in ('latitud','longitud') else 'object' for d in df.columns.tolist() }
+                df = df.astype(new_t)
+
+                df.to_sql('denue',conn, if_exists='append',dtype=dtype_dict,index=False)
+                print(csv)
+
+            except Exception as e:
+                print(csv,e)
+                errors.append(csv)
+
+        return errors
+
+
 if __name__ == '__main__':
     denue = Denue()
+    conn = sqlalchemy.create_engine('postgres://danielurencio:123123@localhost:5432/danielurencio')
+    cols = ['id', 'nom_estab', 'raz_social', 'codigo_act', 'nombre_act', 'per_ocu', 'tipo_vial', 'nom_vial', 'tipo_v_e_1', 'nom_v_e_1', 'tipo_v_e_2', 'nom_v_e_2', 'tipo_v_e_3', 'nom_v_e_3', 'numero_ext', 'letra_ext', 'edificio', 'edificio_e', 'numero_int', 'letra_int', 'tipo_asent', 'nomb_asent', 'tipoCenCom', 'nom_CenCom', 'num_local', 'cod_postal', 'cve_ent', 'entidad', 'cve_mun', 'municipio', 'cve_loc', 'localidad', 'ageb', 'manzana', 'telefono', 'correoelec', 'www', 'tipoUniEco', 'latitud', 'longitud', 'fecha_alta']
+    dtype_dict = { d:sqlalchemy.dialects.postgresql.VARCHAR if d not in ('latitud','longitud') else sqlalchemy.dialects.postgresql.FLOAT for d in cols }
     #denue.download_files()
