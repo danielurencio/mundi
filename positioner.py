@@ -99,7 +99,7 @@ if __name__ == '__main__':
     for cve_ent in cve_ents:
         
         if cve_ent not in obj:
-            obj[cve_ent] = clip_points.get_filetype(cve_ent,'m')
+            obj[cve_ent] = clip_points.get_filetype(cve_ent,'mun')
 
         ixes = df[df.CVE_ENT == cve_ent].index
         df_ = gpd.GeoDataFrame(df.loc[ixes,:])
