@@ -3,3 +3,4 @@ inegi*/
 num_ext/
 __pycache__/
 *.swp
+*.csv
