@@ -72,7 +72,7 @@ class ClipPoints:
 if __name__ == '__main__':
 
     import Cred 
-    cred = Cred.get()
+    cred = Cred.get('redshift_prod_creds')
 
     clip_points = ClipPoints()
 
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     for cve_ent in cve_ents:
         
         if cve_ent not in obj:
-            obj[cve_ent] = clip_points.get_filetype(cve_ent,'mun')
+            obj[cve_ent] = clip_points.get_filetype(cve_ent,'m')
 
         ixes = df[df.CVE_ENT == cve_ent].index
         df_ = gpd.GeoDataFrame(df.loc[ixes,:])
