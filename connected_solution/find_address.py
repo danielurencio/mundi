@@ -142,11 +142,17 @@ if __name__ == '__main__':
 
     # vv-- Add BLOCK to MERCHANT -- vv #
 
+    merchants = []
     for batch in af.merchants_with_municipality.groupby(['CVE_ENT','CVE_MUN']):
         
         bh = BlockFinder(batch,af)
-        #blocks = bh.find_blocks()
+        blocks = bh.find_blocks()
         #print(blocks)
+        dh = DenueHandler(blocks)
+        ms_w_address = dh._add_address_attrs()
+        merchants.append(ms_w_address)
 
+    merchants_df = pd.concat(merchants)
+    merchants_df.to_csv('merchants_w_address.csv',index=False)
         
     # ^^-- Add BLOCK to MERCHANT -- ^^ #

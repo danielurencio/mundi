@@ -72,15 +72,8 @@ class DenueHandler:
 
     def _add_address_attrs(self):
 
-        merchant_point = None
-
-        def add_distance(x):
-            denue_point = x['point']
-            distance = merchant_point.distance(denue_point)
-            x['distance'] = distance
-            return x
-
         # Group by CVEGEO_ to avoid hitting the API multiple times:
+        arr = []
         for cve,df in self.blocks.groupby('CVEGEO_'):
 
             cve_ = self._parse_cve_for_api(cve)
@@ -97,6 +90,12 @@ class DenueHandler:
                 # Get the merchant's point
                 merchant_point = row['geometry']
 
+                def add_distance(x):
+                    denue_point = x['point']
+                    distance = merchant_point.distance(denue_point)
+                    x['distance'] = distance
+                    return x
+
                 # Make sure the denue data has distances in relation to the merchant's point
                 denue_data = list(map(add_distance,denue_data))
 
@@ -104,12 +103,17 @@ class DenueHandler:
                 denue_data_df = pd.DataFrame(denue_data)
                 min_ = denue_data_df[denue_data_df['distance'] == denue_data_df['distance'].min()]
                 
-
                 for c in min_.columns:
 
                     if c not in self.blocks.columns and c != 'point':
-                        print(c,min_[c])
-                        #try:
-                        #    self.blocks.loc[index,c] = min_[c].tolist()[0]
-                        #except:
-                        #    print(c)
+                        #print(c,min_[c])
+                        try:
+                            df.loc[index,c] = min_[c].tolist()[0]
+                        except:
+                            print('ererrr')
+
+            arr.append(df)
+
+        return pd.concat(arr)
+
+
