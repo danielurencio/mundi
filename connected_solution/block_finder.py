@@ -71,7 +71,7 @@ class BlockFinder:
 
         where_condition = self._generate_where_condition()
         af = self.af
-
+        print('querying SF')
         blocks = af._get_map_from_sf('blocks',where_condition=where_condition)
 
         return blocks;
@@ -79,8 +79,9 @@ class BlockFinder:
 
     def _join_blocks(self):
         start = datetime.now()
-
+        print('getting blocks')
         self.blocks = self._get_blocks()
+        print('joining blocks')
         joined = gpd.sjoin(self.df,self.blocks)
         not_joined = self.df[~self.df.merchant_id.isin(joined.merchant_id)]
         
@@ -95,7 +96,7 @@ class BlockFinder:
     @staticmethod
     def extract_polygon_points(p):
         p_ = p.boundary.coords.xy
-        p_ = [ Point((p_[0][i],p_[1][i])) for i in range(len(p_[0])) ]
+        p_ = [ Point((p_[0][i],p_[1][i])) for i in range(len(p_[0])) if i % 10 == 0 ]
         return p_;
 
 
@@ -107,6 +108,8 @@ class BlockFinder:
                     .rename(columns={ 'CVEGEO_right':'CVEGEO' })
         blocks_points = ( self.blocks.CVEGEO, self.blocks['geometry'].map(self.extract_polygon_points) )
         blocks_points = [ d.to_list() for d in blocks_points ]
+        
+        print(len(blocks_points[0]))
 
         def find_missing(ppp):
             data = [ (i,min(list(map(lambda x:ppp.distance(x),b)))) for i,b in enumerate(blocks_points[1]) ]
@@ -114,6 +117,8 @@ class BlockFinder:
             df = pd.DataFrame({ 'ix': data[:,0], 'closest_point':data[:,1]  })
             ix = df[df.closest_point == df.closest_point.min()]['ix'].values[0]
             return blocks_points[0][int(ix)]
+
+        print('find missing')
 
         not_joined.loc[:,'CVEGEO'] = not_joined['geometry'].map(find_missing)
         not_joined = not_joined[['merchant_id','geometry','CVEGEO']]
